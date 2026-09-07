@@ -16,13 +16,13 @@
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
-    main{max-width:820px;margin:0 auto;padding:14px 14px 44px}
+    main{max-width:860px;margin:0 auto;padding:14px 14px 44px}
     h1{font-size:29px;margin:4px 0 5px}
     h2{font-size:20px;margin:0 0 12px}
     h3{font-size:16px;margin:0 0 8px}
     .lead{margin:0 0 14px;color:var(--muted)}
-    .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;position:sticky;top:0;background:rgba(248,250,252,.96);padding:8px 0;z-index:5}
-    .tab{background:#e2e8f0;color:#334155;min-height:44px;padding:8px 6px;font-size:13px}
+    .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;position:sticky;top:0;background:rgba(248,250,252,.96);padding:8px 0;z-index:5}
+    .tab{background:#e2e8f0;color:#334155;min-height:44px;padding:8px 4px;font-size:12px}
     .tab.active{background:var(--accent);color:#fff}
     .panel{display:none}
     .panel.active{display:block}
@@ -75,13 +75,20 @@
     .avg{background:var(--soft);border-radius:14px;padding:13px}
     .avg span{display:block;color:var(--muted);font-size:12px}
     .avg b{display:block;font-size:20px;margin-top:3px}
-    .progress{height:7px;background:#dbeafe;border-radius:999px;overflow:hidden;margin-top:8px}
-    .progress > div{height:100%;background:#2563eb;width:0}
-    @media(max-width:560px){
+    .prediction-score{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px}
+    .score-circle{width:112px;height:112px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--soft);border:8px solid #cbd5e1}
+    .score-circle b{font-size:30px}
+    .pred-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+    .pred{background:var(--soft);border-radius:14px;padding:13px}
+    .pred span{display:block;color:var(--muted);font-size:12px}
+    .pred b{display:block;font-size:18px;margin-top:3px}
+    .confidence{margin-top:12px;height:8px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+    .confidence > div{height:100%;background:#2563eb;width:0}
+    @media(max-width:600px){
       .row{grid-template-columns:1fr}
-      .tabs{grid-template-columns:repeat(4,1fr)}
-      .tab{font-size:12px}
-      .weather,.avg-grid{grid-template-columns:1fr 1fr}
+      .tabs{grid-template-columns:repeat(5,1fr)}
+      .tab{font-size:10px;padding:7px 2px}
+      .weather,.avg-grid,.pred-grid{grid-template-columns:1fr 1fr}
       .ai-grid{grid-template-columns:1fr 1fr 1fr}
       .stats{grid-template-columns:repeat(3,1fr)}
       .entry{grid-template-columns:62px 1fr}
@@ -93,13 +100,14 @@
 <body>
 <main>
   <h1>🎣 Journal de pêche</h1>
-  <p class="lead">V3 — photo, météo, identification IA, dossiers par endroit et moyennes.</p>
+  <p class="lead">V4 — journal chronologique, moyennes par endroit et prédictions basées sur tes propres données.</p>
 
   <nav class="tabs" aria-label="Navigation">
     <button class="tab active" data-tab="capture">➕ Prise</button>
     <button class="tab" data-tab="journal">📒 Journal</button>
     <button class="tab" data-tab="folders">📁 Endroits</button>
     <button class="tab" data-tab="averages">📊 Moyennes</button>
+    <button class="tab" data-tab="prediction">🔮 Prédiction</button>
   </nav>
 
   <section id="panel-capture" class="panel active">
@@ -123,8 +131,7 @@
           <div class="ai-stat"><span class="small">Espèce proposée</span><b id="aiSpecies" style="font-size:14px">—</b></div>
           <div class="ai-stat"><span class="small">Confiance</span><b id="aiConfidence">—</b></div>
         </div>
-        <div class="progress"><div id="aiConfidenceBar"></div></div>
-        <p class="small" style="margin-bottom:0">L’IA propose une valeur. Tu peux toujours corriger l’espèce et le nombre avant d’enregistrer.</p>
+        <p class="small" style="margin-bottom:0">Confirme toujours l'espèce et le nombre avant d'enregistrer.</p>
       </div>
 
       <label>Date <span id="dateBadge"></span>
@@ -186,6 +193,7 @@
   <section id="panel-journal" class="panel">
     <div class="card">
       <h2>Journal complet</h2>
+      <p class="small">Trié automatiquement du plus récent au plus ancien.</p>
       <div class="stats">
         <div class="stat"><b id="totalFish">0</b><span>poissons</span></div>
         <div class="stat"><b id="totalTrips">0</b><span>entrées</span></div>
@@ -203,7 +211,7 @@
   <section id="panel-folders" class="panel">
     <div class="card">
       <h2>Dossiers par endroit</h2>
-      <p class="small">Un dossier est créé automatiquement pour chaque lieu enregistré.</p>
+      <p class="small">Chaque endroit contient ses prises, elles aussi triées par date.</p>
       <div id="foldersEmpty" class="small">Aucun endroit enregistré.</div>
       <div id="foldersList"></div>
     </div>
@@ -211,21 +219,58 @@
 
   <section id="panel-averages" class="panel">
     <div class="card">
-      <h2>Moyennes de toutes tes données</h2>
-      <p class="small">Calculées automatiquement à partir de toutes les prises enregistrées qui contiennent la donnée.</p>
-      <div id="avgEmpty" class="small">Pas encore assez de données.</div>
-      <div id="avgGrid" class="avg-grid" style="display:none">
+      <h2>Moyennes par endroit</h2>
+      <label>Choisir un endroit
+        <select id="averageLocation"></select>
+      </label>
+      <div id="avgEmpty" class="status">Choisis un endroit avec des données.</div>
+      <div id="avgGrid" class="avg-grid" style="display:none;margin-top:14px">
         <div class="avg"><span>Poissons / entrée</span><b id="avgFish">—</b></div>
         <div class="avg"><span>Température air</span><b id="avgAir">—</b></div>
         <div class="avg"><span>Température eau</span><b id="avgWater">—</b></div>
         <div class="avg"><span>Vent moyen</span><b id="avgWind">—</b></div>
-        <div class="avg"><span>Rafales max. moyennes</span><b id="avgGust">—</b></div>
+        <div class="avg"><span>Rafales</span><b id="avgGust">—</b></div>
         <div class="avg"><span>Pression</span><b id="avgPressure">—</b></div>
         <div class="avg"><span>Précipitations</span><b id="avgRain">—</b></div>
         <div class="avg"><span>Nuages</span><b id="avgCloud">—</b></div>
       </div>
-      <div id="conditionSummary" style="margin-top:14px"></div>
-      <div id="locationSummary" style="margin-top:14px"></div>
+      <div id="averageExtras"></div>
+    </div>
+  </section>
+
+  <section id="panel-prediction" class="panel">
+    <div class="card">
+      <h2>Prédiction globale de pêche</h2>
+      <p class="small">Cette prédiction analyse toutes les prises enregistrées ensemble, sans limiter l'analyse à un endroit précis.</p>
+
+      <div id="predictionEmpty" class="status">Ajoute des prises pour commencer à construire la prédiction globale.</div>
+
+      <div id="predictionBox" style="display:none">
+        <div class="prediction-score">
+          <div class="score-circle"><b id="predictionScore">—</b></div>
+          <div style="min-width:0;flex:1">
+            <h3 id="predictionLabel">—</h3>
+            <div class="small" id="predictionText"></div>
+            <div class="confidence"><div id="predictionConfidence"></div></div>
+            <div class="small" id="predictionConfidenceText" style="margin-top:5px"></div>
+          </div>
+        </div>
+
+        <div class="pred-grid">
+          <div class="pred"><span>Poissons prévus / entrée</span><b id="predFish">—</b></div>
+          <div class="pred"><span>Espèce la plus productive</span><b id="predSpecies">—</b></div>
+          <div class="pred"><span>Meilleur endroit historique</span><b id="predLocation">—</b></div>
+          <div class="pred"><span>Meilleur mois enregistré</span><b id="predMonth">—</b></div>
+          <div class="pred"><span>Température air typique</span><b id="predAir">—</b></div>
+          <div class="pred"><span>Température eau typique</span><b id="predWater">—</b></div>
+          <div class="pred"><span>Vent typique</span><b id="predWind">—</b></div>
+          <div class="pred"><span>Pression typique</span><b id="predPressure">—</b></div>
+          <div class="pred"><span>Ciel le plus fréquent</span><b id="predCondition">—</b></div>
+          <div class="pred"><span>Précipitations typiques</span><b id="predRain">—</b></div>
+        </div>
+
+        <div id="predictionAdvice" class="status info" style="margin-top:14px"></div>
+      </div>
     </div>
   </section>
 </main>

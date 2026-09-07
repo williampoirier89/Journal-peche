@@ -228,7 +228,7 @@ function resetForm(){
   weatherStatus.className="status";weatherStatus.textContent="La météo sera récupérée après la date et l'emplacement.";
 }
 
-function renderAll(){renderJournal();renderFolders();refreshLocationSelectors();renderAverages();renderPrediction()}
+function renderAll(){renderJournal();renderFolders();refreshLocationSelectors();renderAverages()}
 function makeEntryNode(e,showDelete){
   const div=document.createElement("div");div.className="entry";const wx=e.weather;
   const weatherLine=wx?`${escapeHtml(wx.conditionText||"")} · ${finiteText(wx.airTempC," °C")} · ${finiteText(wx.pressureHpa," hPa")}`:"Météo non enregistrée";
@@ -289,112 +289,145 @@ function renderAverages(){
   $("averageExtras").innerHTML=`<div class="status" style="margin-top:14px"><b>${data.length}</b> entrée${data.length>1?"s":""} à cet endroit${topSpecies?` · Espèce dominante : <b>${escapeHtml(topSpecies[0])}</b>`:""}${topCondition?` · Ciel le plus fréquent : <b>${escapeHtml(topCondition[0])}</b>`:""}</div>`;
 }
 
-function renderPrediction(){
-  const data=[...entries];
-  if(!data.length){
-    $("predictionEmpty").style.display="block";
-    $("predictionBox").style.display="none";
-    return;
+let forecastLat=null,forecastLon=null;
+
+$("useGpsForecast").addEventListener("click",()=>{
+  const st=$("forecastStatus");
+  if(!navigator.geolocation){st.className="status warn";st.textContent="La géolocalisation n'est pas disponible sur cet appareil.";return}
+  st.className="status info";st.textContent="Recherche de ta position…";
+  navigator.geolocation.getCurrentPosition(async p=>{
+    forecastLat=p.coords.latitude;forecastLon=p.coords.longitude;
+    $("forecastCoords").textContent=`GPS : ${forecastLat.toFixed(5)}, ${forecastLon.toFixed(5)}`;
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${forecastLat}&lon=${forecastLon}&accept-language=fr&zoom=14`);
+      const d=await r.json(),a=d.address||{};
+      const place=a.water||a.reservoir||a.lake||a.river||a.village||a.town||a.city||a.municipality||a.county;
+      $("forecastLocation").value=[place,a.state].filter(Boolean).join(", ");
+    }catch{}
+    st.className="status ok";st.textContent="Position trouvée. Appuie sur « Analyser les 7 jours ».";
+  },()=>{st.className="status warn";st.textContent="Impossible d'obtenir ta position. Vérifie l'autorisation de localisation."},
+  {enableHighAccuracy:true,timeout:10000});
+});
+
+$("forecastLocation").addEventListener("input",()=>{forecastLat=null;forecastLon=null;$("forecastCoords").textContent=""});
+$("runForecast").addEventListener("click",runSevenDayForecast);
+
+async function runSevenDayForecast(){
+  const st=$("forecastStatus"),name=$("forecastLocation").value.trim();
+  if(!entries.length){st.className="status warn";st.textContent="Enregistre d'abord quelques prises : la prévision a besoin de ton historique pour comparer les conditions.";return}
+  if(!(Number.isFinite(forecastLat)&&Number.isFinite(forecastLon))){
+    if(!name){st.className="status warn";st.textContent="Entre un endroit ou utilise ta position actuelle.";return}
+    st.className="status info";st.textContent="Recherche de l'endroit…";
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ca&accept-language=fr&q=${encodeURIComponent(name)}`);
+      const d=await r.json();if(!d.length)throw new Error();
+      forecastLat=Number(d[0].lat);forecastLon=Number(d[0].lon);
+      $("forecastCoords").textContent=`Position : ${forecastLat.toFixed(5)}, ${forecastLon.toFixed(5)}`;
+    }catch{st.className="status warn";st.textContent="Endroit introuvable. Essaie avec le nom du lac + Québec.";return}
   }
 
-  $("predictionEmpty").style.display="none";
-  $("predictionBox").style.display="block";
+  st.className="status info";st.textContent="Récupération de la météo et comparaison avec tout ton historique…";
+  const daily=["weather_code","temperature_2m_mean","precipitation_sum","wind_speed_10m_mean","wind_gusts_10m_max","wind_direction_10m_dominant","cloud_cover_mean","pressure_msl_mean"].join(",");
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${forecastLat}&longitude=${forecastLon}&daily=${daily}&timezone=auto&forecast_days=7`;
+    const r=await fetch(url);if(!r.ok)throw new Error();const d=await r.json();
+    if(!d.daily||!d.daily.time)throw new Error();
+    const days=d.daily.time.map((date,i)=>({
+      date,
+      airTempC:Number(d.daily.temperature_2m_mean?.[i]),
+      precipMm:Number(d.daily.precipitation_sum?.[i]),
+      windKmh:Number(d.daily.wind_speed_10m_mean?.[i]),
+      gustKmh:Number(d.daily.wind_gusts_10m_max?.[i]),
+      windDirectionDeg:Number(d.daily.wind_direction_10m_dominant?.[i]),
+      cloudPct:Number(d.daily.cloud_cover_mean?.[i]),
+      pressureHpa:Number(d.daily.pressure_msl_mean?.[i]),
+      weatherCode:Number(d.daily.weather_code?.[i])
+    }));
+    renderForecast(days);
+    st.className="status ok";st.textContent="Prévision calculée à partir de la météo prévue et de toutes tes données historiques.";
+  }catch(e){console.error(e);st.className="status warn";st.textContent="Impossible de récupérer la prévision météo pour le moment."}
+}
 
-  const avgFish=meanOf(data.map(e=>e.count))||0;
-  const totalFish=data.reduce((s,e)=>s+(Number(e.count)||0),0);
-  const maxFish=Math.max(...data.map(e=>Number(e.count)||0),1);
+function histValues(path){
+  return entries.map(e=>{
+    if(path==="water")return Number(e.waterTempF);
+    return Number(e.weather?.[path]);
+  }).filter(Number.isFinite);
+}
+function similarity(value,values,fallbackScale){
+  if(!Number.isFinite(value)||!values.length)return null;
+  const mean=values.reduce((a,b)=>a+b,0)/values.length;
+  const variance=values.reduce((s,x)=>s+(x-mean)**2,0)/values.length;
+  const sd=Math.sqrt(variance);
+  const scale=Math.max(sd*1.5,fallbackScale);
+  return Math.max(0,100-(Math.abs(value-mean)/scale)*100);
+}
+function conditionCategory(code,cloud,precip){
+  if(code>=95)return"Orageux";
+  if(code>=71&&code<=77)return"Neige";
+  if((code>=51&&code<=67)||(code>=80&&code<=82)||precip>0.5)return"Pluvieux";
+  if(code>=45&&code<=48)return"Brouillard";
+  if(cloud<25)return"Ensoleillé";
+  if(cloud<70)return"Partiellement nuageux";
+  return"Nuageux";
+}
+function historicalConditionWeights(){
+  const counts={};let total=0;
+  entries.forEach(e=>{const c=e.weather?.conditionText;if(c){counts[c]=(counts[c]||0)+(Number(e.count)||1);total+=(Number(e.count)||1)}});
+  return {counts,total};
+}
+function scoreForecastDay(day){
+  const parts=[];
+  const add=(s,w)=>{if(Number.isFinite(s))parts.push([s,w])};
+  add(similarity(day.airTempC,histValues("airTempC"),8),0.22);
+  add(similarity(day.windKmh,histValues("windKmh"),12),0.18);
+  add(similarity(day.gustKmh,histValues("gustKmh"),20),0.10);
+  add(similarity(day.pressureHpa,histValues("pressureHpa"),12),0.22);
+  add(similarity(day.precipMm,histValues("precipMm"),6),0.10);
+  add(similarity(day.cloudPct,histValues("cloudPct"),35),0.10);
 
-  const sampleScore=Math.min(100,Math.round((data.length/20)*100));
-  const weatherComplete=data.filter(e=>e.weather).length;
-  const weatherScore=Math.round((weatherComplete/data.length)*100);
-  const waterComplete=data.filter(e=>Number.isFinite(Number(e.waterTempF))).length;
-  const waterScore=Math.round((waterComplete/data.length)*100);
+  const cat=conditionCategory(day.weatherCode,day.cloudPct,day.precipMm);
+  const cw=historicalConditionWeights();
+  if(cw.total&&cw.counts[cat])add(Math.min(100,(cw.counts[cat]/cw.total)*220),0.08);
 
-  const productivity=Math.min(100,Math.round((avgFish/Math.max(1,maxFish))*100));
-  const diversity=Math.min(100,new Set(data.map(e=>e.species).filter(Boolean)).size*15);
+  const denom=parts.reduce((s,p)=>s+p[1],0)||1;
+  let score=parts.reduce((s,p)=>s+p[0]*p[1],0)/denom;
 
-  const score=Math.round(
-    productivity*0.35 +
-    sampleScore*0.30 +
-    weatherScore*0.20 +
-    waterScore*0.10 +
-    diversity*0.05
-  );
+  const dataConfidence=Math.min(1,entries.length/20);
+  score=50+(score-50)*(0.45+0.55*dataConfidence);
+  return {score:Math.round(Math.max(0,Math.min(100,score))),category:cat};
+}
+function forecastLabel(score){
+  if(score>=80)return"Excellent";
+  if(score>=68)return"Très bon";
+  if(score>=55)return"Bon";
+  if(score>=42)return"Moyen";
+  return"Faible";
+}
+function renderForecast(days){
+  const wrap=$("forecastResults");wrap.innerHTML="";
+  const scored=days.map(d=>({...d,...scoreForecastDay(d)}));
+  const best=Math.max(...scored.map(d=>d.score));
+  const histN=entries.length,confidence=Math.min(100,Math.round(histN/20*100));
+  const names=["dim.","lun.","mar.","mer.","jeu.","ven.","sam."];
 
-  $("predictionScore").textContent=score+"/100";
-
-  let label="Prédiction encore limitée";
-  if(score>=75)label="Historique très solide";
-  else if(score>=55)label="Historique utile";
-  else if(score>=35)label="Historique en développement";
-  $("predictionLabel").textContent=label;
-
-  $("predictionText").textContent=
-    `Analyse globale de ${data.length} entrée${data.length>1?"s":""} et ${totalFish} poisson${totalFish>1?"s":""} enregistrés.`;
-
-  const confidence=Math.min(100,Math.round(
-    sampleScore*0.55 + weatherScore*0.30 + waterScore*0.15
-  ));
-  $("predictionConfidence").style.width=confidence+"%";
-  $("predictionConfidenceText").textContent=
-    `Confiance des données : ${confidence} %${data.length<10?" — ajoute davantage de sorties pour améliorer la prédiction.":""}`;
-
-  const speciesTotals={};
-  data.forEach(e=>{
-    const key=e.species||"Autre";
-    speciesTotals[key]=(speciesTotals[key]||0)+(Number(e.count)||0);
+  scored.forEach((d,i)=>{
+    const dt=new Date(d.date+"T12:00:00"),isBest=d.score===best;
+    const el=document.createElement("div");el.className="forecast-day"+(isBest?" best-day":"");
+    el.innerHTML=`<div class="forecast-head"><div><b>${i===0?"Aujourd’hui":names[dt.getDay()]+" "+dt.getDate()}</b> ${isBest?'<span class="best-badge">⭐ Meilleur choix</span>':""}<div class="small">${escapeHtml(d.category)} · confiance historique ${confidence}%</div></div><div class="forecast-score">${d.score}/100</div></div>
+    <div class="status ${d.score>=68?"ok":d.score<42?"warn":""}"><b>${forecastLabel(d.score)}</b> — ressemblance entre cette météo prévue et les conditions de tes prises historiques.</div>
+    <div class="forecast-details">
+      <div>Air<b>${finiteText(round1(d.airTempC)," °C")}</b></div>
+      <div>Vent<b>${finiteText(round1(d.windKmh)," km/h")}</b></div>
+      <div>Rafales<b>${finiteText(round1(d.gustKmh)," km/h")}</b></div>
+      <div>Pression<b>${finiteText(round1(d.pressureHpa)," hPa")}</b></div>
+      <div>Précip.<b>${finiteText(round1(d.precipMm)," mm")}</b></div>
+      <div>Nuages<b>${finiteText(Math.round(d.cloudPct)," %")}</b></div>
+      <div>Direction<b>${Number.isFinite(d.windDirectionDeg)?compass(d.windDirectionDeg)+" "+Math.round(d.windDirectionDeg)+"°":"—"}</b></div>
+      <div>Historique<b>${histN} sorties</b></div>
+    </div>`;
+    wrap.appendChild(el);
   });
-  const topSpecies=Object.entries(speciesTotals).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
-
-  const locationTotals={};
-  data.forEach(e=>{
-    const key=(e.location||"Lieu inconnu").trim();
-    locationTotals[key]=(locationTotals[key]||0)+(Number(e.count)||0);
-  });
-  const bestLocation=Object.entries(locationTotals).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
-
-  const conditionCount={};
-  data.forEach(e=>{
-    const c=e.weather?.conditionText;
-    if(c)conditionCount[c]=(conditionCount[c]||0)+1;
-  });
-  const topCondition=Object.entries(conditionCount).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
-
-  const monthFish={};
-  data.forEach(e=>{
-    if(!e.date)return;
-    const m=Number(String(e.date).slice(5,7));
-    if(!m)return;
-    monthFish[m]=(monthFish[m]||0)+(Number(e.count)||0);
-  });
-  const bestMonthNum=Object.entries(monthFish).sort((a,b)=>b[1]-a[1])[0]?.[0];
-  const monthNames=["","Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-
-  $("predFish").textContent=finiteText(avgFish,"");
-  $("predSpecies").textContent=topSpecies;
-  $("predLocation").textContent=bestLocation;
-  $("predMonth").textContent=bestMonthNum?monthNames[Number(bestMonthNum)]:"—";
-  $("predAir").textContent=finiteText(meanOf(data.map(e=>e.weather?.airTempC))," °C");
-  $("predWater").textContent=finiteText(meanOf(data.map(e=>e.waterTempF))," °F");
-  $("predWind").textContent=finiteText(meanOf(data.map(e=>e.weather?.windKmh))," km/h");
-  $("predPressure").textContent=finiteText(meanOf(data.map(e=>e.weather?.pressureHpa))," hPa");
-  $("predCondition").textContent=topCondition;
-  $("predRain").textContent=finiteText(meanOf(data.map(e=>e.weather?.precipMm))," mm");
-
-  const advice=[];
-  advice.push(`Ton historique global montre environ ${avgFish} poisson${avgFish>1?"s":""} par entrée.`);
-  if(topSpecies!=="—")advice.push(`L'espèce la plus productive est ${topSpecies}.`);
-  if(bestLocation!=="—")advice.push(`L'endroit ayant produit le plus de poissons jusqu'ici est ${bestLocation}.`);
-  if(bestMonthNum)advice.push(`Ton meilleur mois enregistré est ${monthNames[Number(bestMonthNum)]}.`);
-  if(topCondition!=="—")advice.push(`La condition météo la plus fréquente dans tes prises est : ${topCondition}.`);
-
-  const air=meanOf(data.map(e=>e.weather?.airTempC));
-  if(Number.isFinite(Number(air)))advice.push(`Température d'air typique : ${air} °C.`);
-
-  const wt=meanOf(data.map(e=>e.waterTempF));
-  if(Number.isFinite(Number(wt)))advice.push(`Température d'eau typique : ${wt} °F.`);
-
-  $("predictionAdvice").textContent=advice.join(" ");
 }
 
 $("clear").addEventListener("click",()=>{if(confirm("Effacer toutes les prises enregistrées sur cet appareil?")){entries=[];persist()}});

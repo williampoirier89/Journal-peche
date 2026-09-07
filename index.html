@@ -84,11 +84,21 @@
     .pred b{display:block;font-size:18px;margin-top:3px}
     .confidence{margin-top:12px;height:8px;border-radius:999px;background:#e2e8f0;overflow:hidden}
     .confidence > div{height:100%;background:#2563eb;width:0}
+
+    .forecast-day{border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:12px;background:#fff}
+    .forecast-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .forecast-score{font-size:25px;font-weight:800}
+    .forecast-details{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}
+    .forecast-details div{background:var(--soft);border-radius:10px;padding:8px;font-size:12px}
+    .forecast-details b{display:block;font-size:14px;margin-top:2px}
+    .best-day{border:2px solid var(--accent)}
+    .best-badge{display:inline-block;background:#dcfce7;color:#166534;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800}
     @media(max-width:600px){
       .row{grid-template-columns:1fr}
       .tabs{grid-template-columns:repeat(5,1fr)}
       .tab{font-size:10px;padding:7px 2px}
       .weather,.avg-grid,.pred-grid{grid-template-columns:1fr 1fr}
+      .forecast-details{grid-template-columns:1fr 1fr}
       .ai-grid{grid-template-columns:1fr 1fr 1fr}
       .stats{grid-template-columns:repeat(3,1fr)}
       .entry{grid-template-columns:62px 1fr}
@@ -100,7 +110,7 @@
 <body>
 <main>
   <h1>🎣 Journal de pêche</h1>
-  <p class="lead">V4 — journal chronologique, moyennes par endroit et prédictions basées sur tes propres données.</p>
+  <p class="lead">V5 — prédiction météo d’aujourd’hui et des 7 prochains jours comparée à tout ton historique.</p>
 
   <nav class="tabs" aria-label="Navigation">
     <button class="tab active" data-tab="capture">➕ Prise</button>
@@ -240,37 +250,21 @@
 
   <section id="panel-prediction" class="panel">
     <div class="card">
-      <h2>Prédiction globale de pêche</h2>
-      <p class="small">Cette prédiction analyse toutes les prises enregistrées ensemble, sans limiter l'analyse à un endroit précis.</p>
+      <h2>🔮 Prévision de pêche — 7 jours</h2>
+      <p class="small">Choisis un endroit. L’application récupère la météo d’aujourd’hui et des 6 jours suivants, puis compare chaque journée à toutes tes prises historiques.</p>
 
-      <div id="predictionEmpty" class="status">Ajoute des prises pour commencer à construire la prédiction globale.</div>
+      <label>Endroit à prévoir
+        <input id="forecastLocation" type="text" placeholder="Ex. Lac Opasatica">
+      </label>
+      <div id="forecastCoords" class="coords"></div>
 
-      <div id="predictionBox" style="display:none">
-        <div class="prediction-score">
-          <div class="score-circle"><b id="predictionScore">—</b></div>
-          <div style="min-width:0;flex:1">
-            <h3 id="predictionLabel">—</h3>
-            <div class="small" id="predictionText"></div>
-            <div class="confidence"><div id="predictionConfidence"></div></div>
-            <div class="small" id="predictionConfidenceText" style="margin-top:5px"></div>
-          </div>
-        </div>
-
-        <div class="pred-grid">
-          <div class="pred"><span>Poissons prévus / entrée</span><b id="predFish">—</b></div>
-          <div class="pred"><span>Espèce la plus productive</span><b id="predSpecies">—</b></div>
-          <div class="pred"><span>Meilleur endroit historique</span><b id="predLocation">—</b></div>
-          <div class="pred"><span>Meilleur mois enregistré</span><b id="predMonth">—</b></div>
-          <div class="pred"><span>Température air typique</span><b id="predAir">—</b></div>
-          <div class="pred"><span>Température eau typique</span><b id="predWater">—</b></div>
-          <div class="pred"><span>Vent typique</span><b id="predWind">—</b></div>
-          <div class="pred"><span>Pression typique</span><b id="predPressure">—</b></div>
-          <div class="pred"><span>Ciel le plus fréquent</span><b id="predCondition">—</b></div>
-          <div class="pred"><span>Précipitations typiques</span><b id="predRain">—</b></div>
-        </div>
-
-        <div id="predictionAdvice" class="status info" style="margin-top:14px"></div>
+      <div class="row">
+        <button id="useGpsForecast" class="secondary" type="button" style="margin-top:12px">📍 Ma position actuelle</button>
+        <button id="runForecast" class="primary" type="button">Analyser les 7 jours</button>
       </div>
+
+      <div id="forecastStatus" class="status">Entre un endroit ou utilise ta position actuelle.</div>
+      <div id="forecastResults"></div>
     </div>
   </section>
 </main>

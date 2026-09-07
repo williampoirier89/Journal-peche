@@ -5,5 +5,5 @@
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#0f172a",
-  "description": "Journal simple pour enregistrer ses prises de pêche."
+  "description": "Journal de pêche avec météo historique, GPS et statistiques."
 }

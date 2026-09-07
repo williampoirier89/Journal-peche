@@ -1,72 +1,113 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0f172a" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Journal Pêche" />
-  <link rel="manifest" href="manifest.webmanifest" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Journal Pêche">
+  <link rel="manifest" href="manifest.webmanifest">
   <title>Journal de pêche</title>
   <style>
     :root{
-      --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#64748b; --line:#e2e8f0;
-      --accent:#0f766e; --accent2:#134e4a; --danger:#b91c1c;
+      --bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;
+      --accent:#0f766e;--accentDark:#115e59;--soft:#f1f5f9;--danger:#b91c1c;
+      --ok:#166534;--warn:#92400e;
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
-    main{max-width:760px;margin:0 auto;padding:18px 14px 40px}
-    h1{font-size:28px;margin:4px 0 6px}
-    p.lead{margin:0 0 18px;color:var(--muted)}
+    main{max-width:780px;margin:0 auto;padding:18px 14px 44px}
+    h1{font-size:29px;margin:4px 0 5px}
+    h2{font-size:20px;margin:0 0 12px}
+    h3{font-size:16px;margin:0 0 10px}
+    .lead{margin:0 0 17px;color:var(--muted)}
     .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin:14px 0}
-    label{display:block;font-weight:600;margin-top:12px}
+    label{display:block;font-weight:650;margin-top:12px}
     input,select,button{font:inherit}
-    input,select{width:100%;padding:13px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:7px;font-size:16px}
-    input[type=file]{padding:10px}
-    button{border:0;border-radius:12px;padding:13px 16px;font-weight:700;cursor:pointer}
+    input,select{width:100%;min-height:46px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:7px;font-size:16px;color:var(--text)}
+    input[type=checkbox]{width:20px;min-height:auto;margin:0}
+    input[type=file]{padding:9px}
+    button{border:0;border-radius:12px;min-height:46px;padding:12px 15px;font-weight:750;cursor:pointer}
+    button:disabled{opacity:.55;cursor:not-allowed}
     .primary{background:var(--accent);color:#fff;width:100%;margin-top:16px}
+    .primary:active{background:var(--accentDark)}
     .secondary{background:#e2e8f0;color:#0f172a}
     .danger{background:#fee2e2;color:var(--danger)}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .preview{margin-top:12px;width:100%;max-height:280px;object-fit:cover;border-radius:14px;display:none}
+    .preview{margin-top:12px;width:100%;max-height:330px;object-fit:cover;border-radius:14px;display:none}
+    .status{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--soft);color:var(--muted);font-size:14px}
+    .status.ok{background:#dcfce7;color:var(--ok)}
+    .status.warn{background:#fef3c7;color:var(--warn)}
+    .weather{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:12px}
+    .wx{background:var(--soft);border-radius:13px;padding:11px}
+    .wx span{display:block;color:var(--muted);font-size:12px}
+    .wx b{display:block;margin-top:2px;font-size:16px}
+    .waterline{display:flex;align-items:center;gap:10px;margin-top:10px}
+    .waterline label{margin:0;font-weight:600}
+    .coords{font-size:12px;color:var(--muted);margin-top:5px;word-break:break-word}
     .entry{border-top:1px solid var(--line);padding:14px 0;display:grid;grid-template-columns:72px 1fr auto;gap:12px;align-items:center}
     .entry:first-child{border-top:0}
     .thumb{width:72px;height:72px;object-fit:cover;border-radius:12px;background:#e2e8f0}
-    .meta{color:var(--muted);font-size:14px;margin-top:3px}
-    .pill{display:inline-block;background:#ecfeff;color:#155e75;border-radius:999px;padding:5px 8px;font-size:12px;font-weight:700}
+    .meta{color:var(--muted);font-size:13px;margin-top:3px}
+    .pill{display:inline-block;background:#ecfeff;color:#155e75;border-radius:999px;padding:5px 8px;font-size:12px;font-weight:750}
     .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
     .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .stat{background:#f1f5f9;border-radius:14px;padding:12px;text-align:center}
+    .stat{background:var(--soft);border-radius:14px;padding:12px;text-align:center}
     .stat b{display:block;font-size:22px}
     .small{font-size:13px;color:var(--muted)}
-    @media(max-width:520px){.row{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.entry{grid-template-columns:62px 1fr}.thumb{width:62px;height:62px}.entry button{grid-column:2}}
+    .checkrow{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 0}
+    .checkrow label{margin:0}
+    .auto-badge{display:inline-block;margin-left:6px;font-size:11px;background:#dcfce7;color:#166534;padding:3px 7px;border-radius:999px}
+    @media(max-width:540px){
+      .row{grid-template-columns:1fr}
+      .weather{grid-template-columns:1fr 1fr}
+      .stats{grid-template-columns:1fr 1fr 1fr}
+      .entry{grid-template-columns:62px 1fr}
+      .thumb{width:62px;height:62px}
+      .entry button{grid-column:2}
+    }
   </style>
 </head>
 <body>
 <main>
   <h1>🎣 Journal de pêche</h1>
-  <p class="lead">Ajoute une photo de ta prise, indique le lieu et enregistre les infos de ta journée.</p>
+  <p class="lead">Ajoute une photo. L'app tente de retrouver automatiquement la date, le GPS et la météo de cette journée.</p>
 
   <section class="card">
     <h2>Nouvelle prise</h2>
+
     <label>Photo
-      <input id="photo" type="file" accept="image/*" />
+      <input id="photo" type="file" accept="image/*,.heic,.heif">
     </label>
-    <img id="preview" class="preview" alt="Aperçu de la photo sélectionnée" />
+    <img id="preview" class="preview" alt="Aperçu de la photo">
+    <div id="photoStatus" class="status">Sélectionne une photo pour commencer.</div>
 
-    <div class="row">
-      <label>Date
-        <input id="date" type="date" />
-      </label>
-      <label>Heure
-        <input id="time" type="time" />
-      </label>
+    <label>Date <span id="dateBadge"></span>
+      <input id="date" type="date">
+    </label>
+
+    <label>Emplacement <span id="locationBadge"></span>
+      <input id="location" type="text" placeholder="Ex. Lac Opasatica">
+    </label>
+    <div id="coords" class="coords"></div>
+
+    <button id="weatherBtn" type="button" class="secondary" style="width:100%;margin-top:12px">
+      Récupérer la météo
+    </button>
+
+    <div id="weatherStatus" class="status">La météo sera récupérée après la date et l'emplacement.</div>
+
+    <div id="weatherBox" class="weather" style="display:none">
+      <div class="wx"><span>Température de l'air</span><b id="airTemp">—</b></div>
+      <div class="wx"><span>Conditions</span><b id="condition">—</b></div>
+      <div class="wx"><span>Vent</span><b id="wind">—</b></div>
+      <div class="wx"><span>Rafales</span><b id="gust">—</b></div>
+      <div class="wx"><span>Direction</span><b id="windDir">—</b></div>
+      <div class="wx"><span>Pression moy.</span><b id="pressure">—</b></div>
+      <div class="wx"><span>Pluie / précip.</span><b id="rain">—</b></div>
+      <div class="wx"><span>Nuages moyens</span><b id="clouds">—</b></div>
     </div>
-
-    <label>Lieu de pêche
-      <input id="location" type="text" placeholder="Ex. Lac Opasatica" />
-    </label>
 
     <div class="row">
       <label>Espèce
@@ -80,14 +121,23 @@
           <option>Autre</option>
         </select>
       </label>
+
       <label>Nombre de poissons
-        <input id="count" type="number" min="1" max="100" value="1" />
+        <input id="count" type="number" min="1" max="100" value="1">
       </label>
     </div>
 
-    <label>Température extérieure (°C)
-      <input id="temp" type="number" step="0.1" placeholder="Ex. 18" />
-    </label>
+    <div class="row">
+      <label>Température de l'eau (°F)
+        <input id="waterTemp" type="number" step="0.1" min="30" max="110" placeholder="Ex. 67">
+      </label>
+      <div>
+        <div class="checkrow">
+          <input id="waterUnknown" type="checkbox" checked>
+          <label for="waterUnknown">Température de l'eau inconnue</label>
+        </div>
+      </div>
+    </div>
 
     <button id="save" class="primary">Enregistrer la prise</button>
     <div id="msg" class="small" aria-live="polite" style="margin-top:8px"></div>
@@ -113,11 +163,16 @@
   </section>
 
   <section class="card">
-    <h2>Installer sur iPhone</h2>
-    <p class="small">Dans Safari : bouton Partager → <b>Ajouter à l’écran d’accueil</b>. L’app s’ouvrira ensuite comme une application.</p>
+    <h3>À savoir pour ce test</h3>
+    <p class="small">
+      La date et le GPS sont automatiques seulement si la photo contient encore ses métadonnées.
+      Si le GPS est absent, écris le lac ou la ville puis appuie sur « Récupérer la météo ».
+      Toutes les valeurs peuvent être vérifiées avant l'enregistrement.
+    </p>
   </section>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

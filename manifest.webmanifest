@@ -1,0 +1,9 @@
+{
+  "name": "Journal de pêche",
+  "short_name": "Pêche",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "description": "Journal simple pour enregistrer ses prises de pêche."
+}
